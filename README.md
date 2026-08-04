@@ -36,6 +36,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 | 第 8 节 | 使用 POST 新增图书 | 已完成 |
 | 第 9 节 | 使用 PUT 修改图书 | 已完成 |
 | 第 10 节 | 使用 DELETE 删除图书 | 已完成 |
+| 第 11 节 | Controller、Service、Repository 分层 | 已完成 |
 
 ## 从这里开始
 
@@ -43,7 +44,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 
 已经完成前面课程、准备继续当前进度时，请阅读：
 
-- [第 10 节：使用 DELETE 删除图书](docs/10-使用DELETE删除图书.md)
+- [第 11 节：Controller、Service、Repository 分层](docs/11-Controller-Service-Repository分层.md)
 - [使用 curl 验证接口](docs/使用curl验证接口.md)
 - [HTTP 请求示例文件](requests/book-api.http)（仅作为请求内容参考）
 
@@ -113,6 +114,22 @@ PUT 请求的具体操作和代码运行过程见第 9 节文档。
 
 DELETE 请求只需要在地址中提供要删除的图书编号，不需要 JSON 请求体。具体操作和代码运行过程见第 10 节文档。
 
+## 当前代码分层
+
+```text
+HTTP 请求
+    ↓
+BookController：接收请求和返回响应
+    ↓
+BookService：组织业务步骤
+    ↓
+BookRepository：管理内存中的图书数据
+    ↓
+List<Book>
+```
+
+分层后接口地址不变，但每个类只负责一类工作。详细创建步骤和构造器注入说明见第 11 节文档。
+
 ## 学习文档
 
 0. [如何重现每一节代码](docs/00-如何重现每一节代码.md)
@@ -127,6 +144,7 @@ DELETE 请求只需要在地址中提供要删除的图书编号，不需要 JSO
 8. [使用 POST 新增图书](docs/08-使用POST新增图书.md)
 9. [使用 PUT 修改图书](docs/09-使用PUT修改图书.md)
 10. [使用 DELETE 删除图书](docs/10-使用DELETE删除图书.md)
+11. [Controller、Service、Repository 分层](docs/11-Controller-Service-Repository分层.md)
 
 ## 已完成课程的代码快照
 
@@ -138,6 +156,7 @@ DELETE 请求只需要在地址中提供要删除的图书编号，不需要 JSO
 | `lesson-04-book-create` | 使用 POST 和 JSON 新增图书 |
 | `lesson-05-book-update` | 使用 PUT 修改指定编号的图书 |
 | `lesson-06-book-delete` | 使用 DELETE 删除指定编号的图书 |
+| `lesson-07-layered-architecture` | 将图书功能拆分为 Controller、Service、Repository |
 
 标签的查看、切换和源码导出方法见[如何重现每一节代码](docs/00-如何重现每一节代码.md)。
 

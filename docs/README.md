@@ -57,11 +57,16 @@ Hello, Spring Boot!
 
 完成标志：能够修改指定编号的图书；发送 DELETE 请求后得到 HTTP 204，再次查询全部图书时，被删除的图书已经消失。
 
+## 第六阶段：代码分层
+
+11. [Controller、Service、Repository 分层](11-Controller-Service-Repository分层.md)
+
+完成标志：接口行为保持不变，Controller 只处理 HTTP，Service 处理业务步骤，Repository 管理内存数据，并能说明 Spring 构造器注入的过程。
+
 ## 后续学习路线
 
-完成内存版增删改查后，将继续逐步增加文档和代码：
+完成代码分层后，将继续逐步增加文档和代码：
 
-11. Controller、Service、Repository 分层
 12. 使用 H2 数据库和 Spring Data JPA
 13. 参数校验和统一异常处理
 14. 自动化测试
