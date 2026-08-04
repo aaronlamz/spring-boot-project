@@ -1,0 +1,14 @@
+### 查询全部图书
+GET http://localhost:8080/api/books
+
+### 新增一本图书
+POST http://localhost:8080/api/books
+Content-Type: application/json
+
+{
+  "title": "Spring 实战",
+  "author": "赵六"
+}
+
+### 再次查询全部图书，确认新增结果
+GET http://localhost:8080/api/books

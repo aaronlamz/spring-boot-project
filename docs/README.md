@@ -29,8 +29,6 @@
 Hello, Spring Boot!
 ```
 
-## 后续学习路线
-
 ## 第二阶段：Maven 配置与 JSON
 
 5. [理解 Maven 和 pom.xml](05-理解Maven和pom.xml.md)
@@ -44,11 +42,16 @@ Hello, Spring Boot!
 
 完成标志：浏览器访问 `http://localhost:8080/api/books`，能够看到包含三本图书的 JSON 数组，并能根据不同编号查询对应图书。
 
+## 第四阶段：新增图书
+
+8. [使用 POST 新增图书](08-使用POST新增图书.md)
+
+完成标志：发送 POST 请求后得到 HTTP 201 和编号为 4 的图书，再次查询全部图书时能够看到新数据。
+
 ## 后续学习路线
 
-完成第三阶段后，将继续逐步增加文档和代码：
+完成第四阶段后，将继续逐步增加文档和代码：
 
-8. 新增图书
 9. 修改图书
 10. 删除图书
 11. Controller、Service、Repository 分层
