@@ -24,3 +24,9 @@ Content-Type: application/json
 
 ### 查询编号为 1 的图书，确认修改结果
 GET http://localhost:8080/api/books/1
+
+### 删除编号为 2 的图书
+DELETE http://localhost:8080/api/books/2
+
+### 查询全部图书，确认编号为 2 的图书已经删除
+GET http://localhost:8080/api/books
