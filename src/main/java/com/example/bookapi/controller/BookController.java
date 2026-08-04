@@ -6,13 +6,33 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/books")
 public class BookController {
 
+    private final List<Book> books = new ArrayList<>();
+
+    public BookController() {
+        books.add(new Book(1L, "Spring Boot 入门", "张三"));
+        books.add(new Book(2L, "Java 核心技术", "李四"));
+        books.add(new Book(3L, "深入理解 Java 虚拟机", "王五"));
+    }
+
+    @GetMapping
+    public List<Book> findAll() {
+        return books;
+    }
+
     @GetMapping("/{id}")
     public Book findById(@PathVariable Long id) {
-        return new Book(id, "Spring Boot 入门", "张三");
+        for (Book book : books) {
+            if (id.equals(book.getId())) {
+                return book;
+            }
+        }
+        return null;
     }
 }
-
