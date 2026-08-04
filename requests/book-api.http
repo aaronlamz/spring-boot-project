@@ -12,3 +12,15 @@ Content-Type: application/json
 
 ### 再次查询全部图书，确认新增结果
 GET http://localhost:8080/api/books
+
+### 修改编号为 1 的图书
+PUT http://localhost:8080/api/books/1
+Content-Type: application/json
+
+{
+  "title": "Spring Boot 进阶",
+  "author": "张三"
+}
+
+### 查询编号为 1 的图书，确认修改结果
+GET http://localhost:8080/api/books/1

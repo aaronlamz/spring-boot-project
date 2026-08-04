@@ -296,6 +296,8 @@ public class BookController {
 
 ## 8. 使用 IDEA HTTP Client
 
+> 当前学习环境的 IDEA HTTP Client 需要许可证，因此本课程实际操作统一使用下一节介绍的 `curl`。本节内容仅用于认识 `.http` 请求文件，不要求执行。
+
 项目中已经提供：
 
 ```text
@@ -343,7 +345,7 @@ Content-Type: application/json
 }
 ```
 
-## 9. 如果 IDEA 不能运行 .http 文件
+## 9. 使用 curl 发送 POST 请求（当前推荐方式）
 
 如果文件上方出现下面的提示：
 
@@ -351,7 +353,7 @@ Content-Type: application/json
 激活 IDE 许可证以使用 HTTP 客户端
 ```
 
-说明当前 IDEA 版本或许可证不包含 HTTP Client 功能。这不是 Java 代码错误，也不影响 Spring Boot 项目运行。无需点击“申请试用”，使用 macOS 自带的 `curl` 就能完成相同验证。
+说明当前 IDEA 版本或许可证不包含 HTTP Client 功能。这不是 Java 代码错误，也不影响 Spring Boot 项目运行。无需点击“申请试用”，本课程统一使用 macOS 自带的 `curl` 完成验证。
 
 保持 `BookApiApplication` 继续运行，然后点击 IDEA 底部的 **Terminal**。看到命令提示符后，复制并执行：
 

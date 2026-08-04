@@ -34,6 +34,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 | 第 6 节 | 创建 Book 对象并返回 JSON | 已完成 |
 | 第 7 节 | 使用 List 保存并查询多本图书 | 已完成 |
 | 第 8 节 | 使用 POST 新增图书 | 已完成 |
+| 第 9 节 | 使用 PUT 修改图书 | 已完成 |
 
 ## 从这里开始
 
@@ -41,8 +42,9 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 
 已经完成前面课程、准备继续当前进度时，请阅读：
 
-- [第 8 节：使用 POST 新增图书](docs/08-使用POST新增图书.md)
-- [IDEA HTTP 请求文件](requests/book-api.http)
+- [第 9 节：使用 PUT 修改图书](docs/09-使用PUT修改图书.md)
+- [使用 curl 验证接口](docs/使用curl验证接口.md)
+- [HTTP 请求示例文件](requests/book-api.http)（仅作为请求内容参考）
 
 每一节文档都会说明：
 
@@ -83,6 +85,7 @@ mvn spring-boot:run
 | GET | `http://localhost:8080/api/books` | 查询全部图书 |
 | GET | `http://localhost:8080/api/books/1` | 根据编号查询图书 |
 | POST | `http://localhost:8080/api/books` | 新增一本图书（第 8 节） |
+| PUT | `http://localhost:8080/api/books/1` | 修改指定编号的图书（第 9 节） |
 
 新增图书的请求体示例：
 
@@ -93,11 +96,23 @@ mvn spring-boot:run
 }
 ```
 
-POST 请求不能直接通过浏览器地址栏完成。可以使用 IDEA 打开 [requests/book-api.http](requests/book-api.http) 发送请求；如果当前 IDEA 提示需要许可证才能使用 HTTP Client，直接使用 macOS 终端和 `curl` 即可，不需要为本课程购买或试用许可证。详细操作见第 8 节文档。
+POST、PUT 和后续的 DELETE 请求不能只靠浏览器地址栏完成。当前学习环境统一使用 macOS 自带的 `curl` 发送接口请求，不依赖 IDEA HTTP Client，也不需要为此购买或试用 IDEA 许可证。完整说明和 GET、POST、PUT 示例见[使用 curl 验证接口](docs/使用curl验证接口.md)。
+
+修改图书的请求体示例：
+
+```json
+{
+  "title": "Spring Boot 进阶",
+  "author": "张三"
+}
+```
+
+PUT 请求的具体操作和代码运行过程见第 9 节文档。
 
 ## 学习文档
 
 0. [如何重现每一节代码](docs/00-如何重现每一节代码.md)
+   - [使用 curl 验证接口](docs/使用curl验证接口.md)
 1. [检查开发环境](docs/01-检查开发环境.md)
 2. [使用 IDEA 导入项目](docs/02-使用IDEA导入项目.md)
 3. [启动项目并访问接口](docs/03-启动项目并访问接口.md)
@@ -106,6 +121,7 @@ POST 请求不能直接通过浏览器地址栏完成。可以使用 IDEA 打开
 6. [创建 Book 对象并返回 JSON](docs/06-创建Book对象并返回JSON.md)
 7. [使用 List 查询全部图书](docs/07-使用List查询全部图书.md)
 8. [使用 POST 新增图书](docs/08-使用POST新增图书.md)
+9. [使用 PUT 修改图书](docs/09-使用PUT修改图书.md)
 
 ## 已完成课程的代码快照
 
@@ -115,6 +131,7 @@ POST 请求不能直接通过浏览器地址栏完成。可以使用 IDEA 打开
 | `lesson-02-book-json` | 返回一本图书的 JSON |
 | `lesson-03-book-list` | 使用 List 查询全部图书和指定图书 |
 | `lesson-04-book-create` | 使用 POST 和 JSON 新增图书 |
+| `lesson-05-book-update` | 使用 PUT 修改指定编号的图书 |
 
 标签的查看、切换和源码导出方法见[如何重现每一节代码](docs/00-如何重现每一节代码.md)。
 
