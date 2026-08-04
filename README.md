@@ -22,6 +22,8 @@
 - Spring Boot 2.7.18
 - Maven
 - IntelliJ IDEA
+- Spring Data JPA
+- H2 Database
 
 Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 项目的运行环境一致。
 
@@ -37,6 +39,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 | 第 9 节 | 使用 PUT 修改图书 | 已完成 |
 | 第 10 节 | 使用 DELETE 删除图书 | 已完成 |
 | 第 11 节 | Controller、Service、Repository 分层 | 已完成 |
+| 第 12 节 | 使用 H2 数据库和 Spring Data JPA | 已完成 |
 
 ## 从这里开始
 
@@ -44,7 +47,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 
 已经完成前面课程、准备继续当前进度时，请阅读：
 
-- [第 11 节：Controller、Service、Repository 分层](docs/11-Controller-Service-Repository分层.md)
+- [第 12 节：使用 H2 数据库和 Spring Data JPA](docs/12-使用H2数据库和SpringDataJPA.md)
 - [使用 curl 验证接口](docs/使用curl验证接口.md)
 - [HTTP 请求示例文件](requests/book-api.http)（仅作为请求内容参考）
 
@@ -123,12 +126,14 @@ BookController：接收请求和返回响应
     ↓
 BookService：组织业务步骤
     ↓
-BookRepository：管理内存中的图书数据
+BookRepository：Spring Data JPA 数据访问接口
     ↓
-List<Book>
+Hibernate：把对象操作转换成 SQL
+    ↓
+H2 文件数据库：data/bookdb.mv.db
 ```
 
-分层后接口地址不变，但每个类只负责一类工作。详细创建步骤和构造器注入说明见第 11 节文档。
+接口地址保持不变，但图书数据已经从 ArrayList 移到 H2 文件数据库。应用停止和重新启动后，数据仍然存在。`data/` 是本机运行数据目录，已加入 `.gitignore`，不会提交到仓库。
 
 ## 学习文档
 
@@ -145,6 +150,7 @@ List<Book>
 9. [使用 PUT 修改图书](docs/09-使用PUT修改图书.md)
 10. [使用 DELETE 删除图书](docs/10-使用DELETE删除图书.md)
 11. [Controller、Service、Repository 分层](docs/11-Controller-Service-Repository分层.md)
+12. [使用 H2 数据库和 Spring Data JPA](docs/12-使用H2数据库和SpringDataJPA.md)
 
 ## 已完成课程的代码快照
 
@@ -157,6 +163,7 @@ List<Book>
 | `lesson-05-book-update` | 使用 PUT 修改指定编号的图书 |
 | `lesson-06-book-delete` | 使用 DELETE 删除指定编号的图书 |
 | `lesson-07-layered-architecture` | 将图书功能拆分为 Controller、Service、Repository |
+| `lesson-08-h2-jpa` | 使用 H2 和 Spring Data JPA 持久化图书数据 |
 
 标签的查看、切换和源码导出方法见[如何重现每一节代码](docs/00-如何重现每一节代码.md)。
 
