@@ -309,6 +309,104 @@ extends JpaRepository<Book, Long>
 - `Book`：这个 Repository 管理的实体类型。
 - `Long`：Book 主键的 Java 类型。
 
+### 空接口为什么拥有 findAll 方法
+
+这里首先是普通的 Java 接口继承，并不是 JPA 特有语法。
+
+例如：
+
+```java
+public interface Parent {
+    void hello();
+}
+
+public interface Child extends Parent {
+}
+```
+
+虽然 `Child` 的大括号是空的，但 `Child` 仍然继承了 `Parent` 的 `hello()` 方法。因此，类型为 `Child` 的变量可以调用：
+
+```java
+child.hello();
+```
+
+项目中的关系完全相同：
+
+```text
+BookRepository
+      ↓ extends
+JpaRepository<Book, Long>
+      ↓ 已声明通用方法
+findAll、findById、save、deleteById、existsById、count……
+```
+
+所以：
+
+```java
+bookRepository.findAll();
+```
+
+不是调用 `BookRepository.java` 大括号中编写的方法，而是调用它从父接口继承的方法。
+
+### findAll 到底声明在哪里
+
+在当前使用的 Spring Data JPA 版本中，`JpaRepository` 自己声明了类似下面的方法：
+
+```java
+List<T> findAll();
+```
+
+`JpaRepository` 还继承了其他父接口。简化后的继承关系是：
+
+```text
+BookRepository
+          ↓
+JpaRepository<Book, Long>
+          ↓
+PagingAndSortingRepository<Book, Long>
+          ↓
+CrudRepository<Book, Long>
+```
+
+这些接口共同提供了查询、分页、保存、删除和计数等方法。因此，一个接口不仅拥有自己直接声明的方法，也拥有父接口以及更上层父接口的方法。
+
+### Book 和 Long 怎样替换泛型
+
+`JpaRepository` 是通用接口，不能提前知道以后要管理的是图书、用户还是订单，所以使用 `T` 和 `ID` 作为类型占位符。可以把它的部分定义简化理解为：
+
+```java
+public interface JpaRepository<T, ID> {
+    List<T> findAll();
+    Optional<T> findById(ID id);
+    T save(T entity);
+    void deleteById(ID id);
+}
+```
+
+项目写的是：
+
+```java
+JpaRepository<Book, Long>
+```
+
+这相当于告诉 Java 和 Spring：
+
+```text
+T  替换成 Book
+ID 替换成 Long
+```
+
+替换后，可以把继承到的方法理解为：
+
+```java
+List<Book> findAll();
+Optional<Book> findById(Long id);
+Book save(Book book);
+void deleteById(Long id);
+```
+
+这些代码是为了帮助理解泛型替换，不需要复制到 `BookRepository` 中。真正的方法声明已经存在于 Spring Data 提供的接口里。
+
 继承后自动获得常用方法：
 
 | 方法 | 作用 |
@@ -331,6 +429,317 @@ class BookRepositoryImpl
 Spring Data JPA 会在应用启动时读取这个接口，然后动态创建实现对象，并把它注册为 Spring Bean。
 
 所以 Service 仍然可以通过构造器注入 `BookRepository`。
+
+这里需要区分两个时间点。
+
+编译代码时，Java 只需要确认 `BookRepository` 继承了 `findAll()`，所以这一行可以通过编译：
+
+```java
+bookRepository.findAll();
+```
+
+运行项目时，只有接口还不够，因为真正执行查询必须有实现。Spring Data JPA 会完成以下工作：
+
+```text
+Spring Boot 启动
+      ↓
+扫描到 BookRepository 接口
+      ↓
+读取 Book 和 Long 两个泛型信息
+      ↓
+创建一个实现 BookRepository 的代理对象
+      ↓
+代理对象把通用增删改查交给 SimpleJpaRepository
+      ↓
+把代理对象注册成 Spring Bean
+      ↓
+通过 BookService 构造方法注入
+```
+
+`SimpleJpaRepository` 是 Spring Data JPA 提供的通用实现类。Spring 创建的代理对象会把 `findAll()` 等调用交给它处理。这里的“动态创建”不表示项目中生成了一个可见的 `BookRepositoryImpl.java` 文件；这个对象是在程序运行期间存在于内存中的。
+
+### findAll 从 Java 方法到 SQL 的完整过程
+
+当 Service 执行：
+
+```java
+return bookRepository.findAll();
+```
+
+完整过程可以理解为：
+
+```text
+BookService 调用 findAll()
+      ↓
+Spring 创建的 Repository 代理对象接收调用
+      ↓
+SimpleJpaRepository 执行通用 findAll 逻辑
+      ↓
+通过 JPA 的 EntityManager 发起实体查询
+      ↓
+Hibernate 根据 @Entity 和 @Table 生成 SQL
+      ↓
+H2 执行类似 SELECT ... FROM books 的 SQL
+      ↓
+Hibernate 把每一行转换成 Book 对象
+      ↓
+多个 Book 组成 List<Book>
+      ↓
+结果返回给 BookService
+```
+
+`SimpleJpaRepository` 内部的实际代码更复杂，但核心意思可以简化为：
+
+```text
+findAll()
+    → 使用 EntityManager 创建 Book 实体查询
+    → 执行查询
+    → 返回结果列表
+```
+
+这段是原理流程，不是需要复制的项目代码。真正的 Java 实现由 Spring Data JPA 依赖包提供。
+
+因此，不是 `findAll()` 天然认识 `books` 表，而是下面的信息共同确定了查询目标：
+
+```java
+JpaRepository<Book, Long>  // 要查询 Book
+@Entity                    // Book 是数据库实体
+@Table(name = "books")     // Book 对应 books 表
+```
+
+### 在 IDEA 中亲自找到 findAll
+
+1. 打开 `BookRepository.java`。
+2. 按住 `Command`，点击 `JpaRepository`。
+3. IDEA 会打开 Maven 依赖中的接口源码。
+4. 在打开的文件中搜索 `findAll`。
+5. 也可以回到 `BookService`，按住 `Command` 点击 `findAll()`，查看 IDEA 跳转到的方法声明。
+
+如果 IDEA 显示的是只读源码，这是正常的。它来自 Maven 下载的 Spring Data JPA 依赖，不属于当前项目，不需要修改。
+
+### JPA、Hibernate、Spring Data JPA 各自负责什么
+
+这三个名称不是同一个东西：
+
+| 名称 | 在这里的职责 |
+| --- | --- |
+| JPA | 规定实体映射和数据库操作的标准接口 |
+| Hibernate | 实现 JPA，并把实体操作转换成 SQL |
+| Spring Data JPA | 提供 `JpaRepository`，自动创建 Repository 代理并封装通用增删改查 |
+
+所以 `JpaRepository` 是 **Spring Data JPA** 提供的接口，而不是 JDK 自带的接口，也不是 H2 提供的接口。
+
+### 怎样判断一个 Repository 方法来自哪里
+
+以后看到 Repository 方法时，可以先分成下面四类：
+
+| 类型 | 示例 | 谁声明方法 | 谁完成实现 |
+| --- | --- | --- | --- |
+| 继承的通用方法 | `findAll()`、`findById()`、`save()`、`deleteById()` | Spring Data 的父接口 | Spring Data JPA 的通用实现 |
+| 按名称派生的查询 | `findByAuthor(String author)` | 当前项目的 `BookRepository` | Spring 根据方法名自动生成查询 |
+| 使用 `@Query` 的查询 | `findBooksByTitle(...)` | 当前项目的 `BookRepository` | Spring 执行注解中写明的 JPQL 或 SQL |
+| 完全手写的实现 | 复杂的特殊数据库操作 | 当前项目的接口或类 | 当前项目自己编写实现代码 |
+
+当前项目中的 `BookRepository` 是空接口：
+
+```java
+public interface BookRepository extends JpaRepository<Book, Long> {
+}
+```
+
+因此，本节使用的 Repository 方法全部是继承来的通用方法：
+
+```java
+bookRepository.findAll();
+bookRepository.findById(id);
+bookRepository.save(book);
+bookRepository.existsById(id);
+bookRepository.deleteById(id);
+bookRepository.count();
+```
+
+判断依据不是“方法看起来像不像内置方法”，而是查看方法声明的位置：
+
+- `BookRepository` 中没写，父接口中能找到：继承的方法。
+- `BookRepository` 中亲自声明：项目自定义的方法。
+- 方法上有 `@Query`：项目明确提供了查询语句。
+
+### 自定义方法为什么也可能没有实现类
+
+例如，以后可以在 `BookRepository` 的大括号中声明：
+
+```java
+List<Book> findByAuthor(String author);
+```
+
+这个方法签名是项目自己定义的，所以它属于“自定义 Repository 方法”。但是我们仍然没有编写方法体。
+
+Spring Data JPA 能按照固定命名规则拆解方法名：
+
+```text
+find  By  Author
+查询  根据  author 字段
+```
+
+然后自动生成类似下面的查询：
+
+```sql
+SELECT * FROM books WHERE author = ?;
+```
+
+这里要区分两个概念：
+
+- **方法声明是不是我们写的**：`findByAuthor` 是我们写的。
+- **方法实现是不是我们写的**：不是，查询实现仍由 Spring Data JPA 生成。
+
+课程当前没有真正加入 `findByAuthor`，上面的代码只用于解释方法来源，暂时不需要复制到项目中。
+
+### 使用 @Query 的自定义查询
+
+如果方法名称无法清楚表达查询，也可以明确写出查询规则。例如：
+
+```java
+@Query("select book from Book book where book.title = :title")
+List<Book> findBooksByTitle(@Param("title") String title);
+```
+
+此时：
+
+- 方法名 `findBooksByTitle` 由项目定义。
+- `@Query` 中的查询也由项目定义。
+- Spring Data JPA 仍负责创建代理对象和执行查询。
+
+这里的 `Book` 是实体类名，不是数据库表名；这种面向实体编写的查询叫 JPQL。`@Query` 会在后续需要自定义查询时再正式练习，本节只需要认识它与 `findAll()` 的来源不同。
+
+### 一次 Repository 调用的完整底层链路
+
+无论调用继承方法还是自定义查询，大体都会经过下面这些层次：
+
+```text
+浏览器或 curl 发送 HTTP 请求
+      ↓
+Tomcat 接收网络请求
+      ↓
+DispatcherServlet 查找对应的 Controller 方法
+      ↓
+Controller 读取路径参数或 JSON
+      ↓
+Controller 调用 BookService
+      ↓
+BookService 调用 BookRepository 接口方法
+      ↓
+Spring 创建的 Repository 代理对象拦截调用
+      ↓
+确定执行方式
+  ├─ findAll 等继承方法 → SimpleJpaRepository
+  ├─ findByAuthor 等名称查询 → 解析方法名称
+  └─ @Query 方法 → 读取注解中的查询
+      ↓
+通过 JPA EntityManager 执行实体操作
+      ↓
+Hibernate 把实体操作转换成 SQL
+      ↓
+HikariCP 提供数据库连接
+      ↓
+H2 执行 SQL，读取或修改 books 表
+      ↓
+Hibernate 把数据库结果转换成 Book 对象
+      ↓
+结果按照 Repository → Service → Controller 返回
+      ↓
+Jackson 把 Book 或 List<Book> 转换成 JSON
+      ↓
+Tomcat 返回 HTTP 响应
+```
+
+每一层的职责不同：
+
+| 层次 | 主要职责 |
+| --- | --- |
+| Controller | 处理 HTTP 地址、参数、JSON 和响应状态 |
+| Service | 组织业务步骤，例如先查询再修改 |
+| Repository | 表达需要进行的数据库操作 |
+| Repository 代理 | 接收接口调用并选择对应实现方式 |
+| EntityManager | JPA 操作实体的核心接口 |
+| Hibernate | 实现 JPA，并生成和执行 SQL |
+| HikariCP | 管理可复用的数据库连接 |
+| H2 | 真正保存表和数据 |
+
+### 当前六个通用方法分别怎样执行
+
+#### findAll
+
+```text
+findAll()
+  → 查询所有 Book
+  → Hibernate 生成 SELECT
+  → H2 返回 books 表的全部行
+  → 转换成 List<Book>
+```
+
+#### findById
+
+```text
+findById(1L)
+  → 使用 Book 的主键查询
+  → Hibernate 生成带 id 条件的 SELECT
+  → 有结果时得到 Optional<Book>
+  → 没有结果时得到 Optional.empty()
+```
+
+#### save
+
+```text
+save(book)
+  → Spring Data 判断 Book 是否是新实体
+  → id 为 null 时按照新增处理
+  → Hibernate 生成 INSERT
+  → H2 生成主键并写回 Book.id
+```
+
+对于已经存在的实体，`save()` 会走保存修改的逻辑，并在合适的时机产生 `UPDATE`。所以同一个 `save()` 可以用于新增和修改，本项目的 `create()` 才要先执行 `book.setId(null)`，确保新增接口不会意外覆盖已有数据。
+
+#### existsById
+
+```text
+existsById(id)
+  → 查询这个主键是否存在
+  → 返回 boolean
+  → 只会得到 true 或 false
+```
+
+#### deleteById
+
+```text
+deleteById(id)
+  → 根据主键定位实体
+  → Hibernate 生成 DELETE
+  → H2 删除对应数据行
+```
+
+#### count
+
+```text
+count()
+  → Hibernate 生成 COUNT 查询
+  → H2 返回总行数
+  → Java 得到 long 类型的数量
+```
+
+`DataInitializer` 正是先调用 `count()`。只有结果为 0，才执行三次 `save()` 插入初始数据，所以重启应用不会重复添加图书。
+
+### 在 IDEA 中判断方法来源
+
+以后遇到不认识的方法，可以按下面步骤检查：
+
+1. 在调用位置按住 `Command` 并点击方法名。
+2. 查看 IDEA 跳转到了哪个接口或类。
+3. 如果跳到 `JpaRepository`、`CrudRepository` 等依赖源码，它是继承的通用方法。
+4. 如果跳回当前项目的 `BookRepository`，它是项目声明的方法。
+5. 如果方法上有 `@Query`，继续阅读注解中的查询。
+6. 还可以把光标放在方法上按 `Control + J`，查看快速文档和返回类型。
+
+IDEA 跳转到 Maven 依赖的只读源码是正常现象。阅读它可以确认方法来源，但不要修改依赖源码。
 
 ### 为什么不再写 @Repository
 
