@@ -1,5 +1,6 @@
 package com.example.bookapi.service;
 
+import com.example.bookapi.exception.BookNotFoundException;
 import com.example.bookapi.model.Book;
 import com.example.bookapi.repository.BookRepository;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,8 @@ public class BookService {
     }
 
     public Book findById(Long id) {
-        return bookRepository.findById(id).orElse(null);
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new BookNotFoundException(id));
     }
 
     public Book create(Book book) {
@@ -29,18 +31,16 @@ public class BookService {
     }
 
     public Book update(Long id, Book updatedBook) {
-        Book book = bookRepository.findById(id).orElse(null);
-        if (book == null) {
-            return null;
-        }
+        Book book = findById(id);
         book.setTitle(updatedBook.getTitle());
         book.setAuthor(updatedBook.getAuthor());
         return bookRepository.save(book);
     }
 
     public void delete(Long id) {
-        if (bookRepository.existsById(id)) {
-            bookRepository.deleteById(id);
+        if (!bookRepository.existsById(id)) {
+            throw new BookNotFoundException(id);
         }
+        bookRepository.deleteById(id);
     }
 }
