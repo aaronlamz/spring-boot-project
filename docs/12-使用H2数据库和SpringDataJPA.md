@@ -628,7 +628,7 @@ Spring 创建的 Repository 代理对象拦截调用
 通过 JPA EntityManager 执行实体操作
 ```
 
-从 HTTP 请求一直到 H2 的完整链路，本节第 17 步会按启动阶段和请求阶段完整串一遍。
+从 HTTP 请求一直到 H2 的完整链路，本节第 19 步会按启动阶段和请求阶段完整串一遍。
 
 ### 当前六个通用方法分别怎样执行
 
@@ -1062,7 +1062,7 @@ Tomcat started on port(s): 8080 (http)
 
 以后重启时同样先执行 `select count(*)`。因为数据库不为空，不会重复执行三条初始 insert。
 
-完整的启动顺序和它与请求处理的衔接关系，见本节第 17 步。
+完整的启动顺序和它与请求处理的衔接关系，见本节第 19 步。
 
 ## 13. 验证接口仍然正常
 
@@ -1170,7 +1170,47 @@ H2 Console 是辅助学习工具。接口验证仍以 curl 和浏览器返回结
 
 > 截图用于培训文档前已移除浏览器会话参数和个人水印。H2 Console 只建议在本地学习环境中开启。
 
-## 17. 从启动到查询的完整链路
+## 17. 如何重置本地学习数据库
+
+如果以后需要从空数据库重新练习：
+
+1. 先停止 Spring Boot 应用。
+2. 在 Finder 或 IDEA 中找到项目根目录下的 `data` 文件夹。
+3. 建议先把它重命名为 `data-backup` 作为备份。
+4. 再次启动项目。
+
+因为找不到原数据库文件，H2 会创建新数据库，DataInitializer 会重新插入三本初始图书。
+
+不要在应用运行时移动数据库文件。
+
+## 18. 当前项目目录
+
+```text
+spring-boot-project
+├── data/                         本地 H2 数据，不提交
+├── pom.xml                       JPA 和 H2 依赖
+└── src
+    ├── main
+    │   ├── java/com/example/bookapi
+    │   │   ├── config
+    │   │   │   └── DataInitializer.java
+    │   │   ├── controller
+    │   │   │   └── BookController.java
+    │   │   ├── model
+    │   │   │   └── Book.java
+    │   │   ├── repository
+    │   │   │   └── BookRepository.java
+    │   │   └── service
+    │   │       └── BookService.java
+    │   └── resources
+    │       └── application.properties
+    └── test/resources
+        └── application.properties   测试专用的内存 H2 配置
+```
+
+测试配置使用 `jdbc:h2:mem:bookdb-test`，不会连接正式运行时的 `data/bookdb`。因此，即使 IDEA 中的应用还在运行，执行 `mvn test` 也不会争抢同一个数据库文件，更不会修改手动练习得到的数据。URL 后面的 `DB_CLOSE_DELAY=-1` 让测试期间的数据库保持可用，`DB_CLOSE_ON_EXIT=FALSE` 则让 Spring 和 Hibernate 按正常顺序关闭它。
+
+## 19. 完整调用链路
 
 前面各步分别解释了实体、Repository、配置和初始化器。这一步把它们按时间顺序串成一条链路。
 
@@ -1233,7 +1273,7 @@ H2 Console 是辅助学习工具。接口验证仍以 curl 和浏览器返回结
 
 两个容易看错的地方：
 
-- 第 4 步的 `Found 1 JPA repository interfaces` 出现得很早，它表示“扫描到了这个接口”，不表示代理对象已经可用。代理对象要等到第 6、7 步，也就是 EntityManagerFactory 就绪之后才创建。
+- 启动阶段第 4 步的 `Found 1 JPA repository interfaces` 出现得很早，它表示“扫描到了这个接口”，不表示代理对象已经可用。代理对象要等到第 6、7 步，也就是 EntityManagerFactory 就绪之后才创建。
 - Tomcat 的日志分两条。`Tomcat initialized` 在前，只是初始化；真正开始接收请求是靠后的 `Tomcat started`。所以在数据库和 Bean 都没准备好之前，端口不会对外提供服务。
 
 ### 阶段二：请求阶段（每次请求都会走一遍）
@@ -1314,7 +1354,7 @@ PUT 是先 `findById` 再 `save`，产生一条 select 和一条 update。DELETE
 
 ### 用控制台日志对照这条链路
 
-打开 `show-sql` 后，可以直接在 IDEA 的 Run 窗口逐行对照。下面是本项目一次真实重启的日志（数据库中已有数据），只删掉了时间戳和线程名：
+打开 `show-sql` 后，可以直接在 IDEA 的 Run 窗口逐行对照。下面是本项目一次真实重启的日志（数据库中已有数据），只删掉了时间戳和线程名。箭头后面的编号指的是上面启动阶段的步骤号，不是文档小节号：
 
 ```text
 Starting BookApiApplication using Java 1.8.0_502 ...        ← 启动阶段第 2 步
@@ -1348,46 +1388,6 @@ Hibernate:
 3. 因为 `ddl-auto=update` 发现 `books` 表已经存在且结构一致，这次没有 `create table books`。只有第一次启动或删掉 `data/` 之后才会看到建表语句。
 
 执行 curl 之后，才会出现这次请求对应的 `select`、`insert`、`update` 或 `delete`，那属于请求阶段。
-
-## 18. 如何重置本地学习数据库
-
-如果以后需要从空数据库重新练习：
-
-1. 先停止 Spring Boot 应用。
-2. 在 Finder 或 IDEA 中找到项目根目录下的 `data` 文件夹。
-3. 建议先把它重命名为 `data-backup` 作为备份。
-4. 再次启动项目。
-
-因为找不到原数据库文件，H2 会创建新数据库，DataInitializer 会重新插入三本初始图书。
-
-不要在应用运行时移动数据库文件。
-
-## 19. 当前项目目录
-
-```text
-spring-boot-project
-├── data/                         本地 H2 数据，不提交
-├── pom.xml                       JPA 和 H2 依赖
-└── src
-    ├── main
-    │   ├── java/com/example/bookapi
-    │   │   ├── config
-    │   │   │   └── DataInitializer.java
-    │   │   ├── controller
-    │   │   │   └── BookController.java
-    │   │   ├── model
-    │   │   │   └── Book.java
-    │   │   ├── repository
-    │   │   │   └── BookRepository.java
-    │   │   └── service
-    │   │       └── BookService.java
-    │   └── resources
-    │       └── application.properties
-    └── test/resources
-        └── application.properties   测试专用的内存 H2 配置
-```
-
-测试配置使用 `jdbc:h2:mem:bookdb-test`，不会连接正式运行时的 `data/bookdb`。因此，即使 IDEA 中的应用还在运行，执行 `mvn test` 也不会争抢同一个数据库文件，更不会修改手动练习得到的数据。URL 后面的 `DB_CLOSE_DELAY=-1` 让测试期间的数据库保持可用，`DB_CLOSE_ON_EXIT=FALSE` 则让 Spring 和 Hibernate 按正常顺序关闭它。
 
 ## 成功标准
 
