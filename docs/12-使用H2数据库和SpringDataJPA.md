@@ -611,22 +611,12 @@ List<Book> findBooksByTitle(@Param("title") String title);
 
 这里的 `Book` 是实体类名，不是数据库表名；这种面向实体编写的查询叫 JPQL。`@Query` 会在后续需要自定义查询时再正式练习，本节只需要认识它与 `findAll()` 的来源不同。
 
-### 一次 Repository 调用的完整底层链路
+### Repository 代理怎样决定执行方式
 
-无论调用继承方法还是自定义查询，大体都会经过下面这些层次：
+不管调用的是继承方法还是自定义查询，代理对象都会先判断这个方法该交给谁执行：
 
 ```text
-浏览器或 curl 发送 HTTP 请求
-      ↓
-Tomcat 接收网络请求
-      ↓
-DispatcherServlet 查找对应的 Controller 方法
-      ↓
-Controller 读取路径参数或 JSON
-      ↓
-Controller 调用 BookService
-      ↓
-BookService 调用 BookRepository 接口方法
+BookService 调用 BookRepository 的方法
       ↓
 Spring 创建的 Repository 代理对象拦截调用
       ↓
@@ -636,34 +626,9 @@ Spring 创建的 Repository 代理对象拦截调用
   └─ @Query 方法 → 读取注解中的查询
       ↓
 通过 JPA EntityManager 执行实体操作
-      ↓
-Hibernate 把实体操作转换成 SQL
-      ↓
-HikariCP 提供数据库连接
-      ↓
-H2 执行 SQL，读取或修改 books 表
-      ↓
-Hibernate 把数据库结果转换成 Book 对象
-      ↓
-结果按照 Repository → Service → Controller 返回
-      ↓
-Jackson 把 Book 或 List<Book> 转换成 JSON
-      ↓
-Tomcat 返回 HTTP 响应
 ```
 
-每一层的职责不同：
-
-| 层次 | 主要职责 |
-| --- | --- |
-| Controller | 处理 HTTP 地址、参数、JSON 和响应状态 |
-| Service | 组织业务步骤，例如先查询再修改 |
-| Repository | 表达需要进行的数据库操作 |
-| Repository 代理 | 接收接口调用并选择对应实现方式 |
-| EntityManager | JPA 操作实体的核心接口 |
-| Hibernate | 实现 JPA，并生成和执行 SQL |
-| HikariCP | 管理可复用的数据库连接 |
-| H2 | 真正保存表和数据 |
+从 HTTP 请求一直到 H2 的完整链路，本节第 17 步会按启动阶段和请求阶段完整串一遍。
 
 ### 当前六个通用方法分别怎样执行
 
@@ -991,6 +956,59 @@ implements CommandLineRunner
 
 表示应用启动完成 Spring Bean 创建后，要运行这个类的 `run()` 方法。
 
+### 谁调用了 run()
+
+这里最容易困惑的一点是：项目中没有任何一行代码写过 `dataInitializer.run(...)`。
+
+`run()` 是 Spring Boot 在启动流程的最后一步主动回调的。完整过程如下：
+
+```text
+main(args)
+      ↓
+SpringApplication.run(BookApiApplication.class, args)
+      ↓
+@SpringBootApplication 中的 @ComponentScan 从 com.example.bookapi 向下扫描
+      ↓
+发现 config.DataInitializer 上有 @Component，注册成 Bean 定义
+      ↓
+创建容器中的单例 Bean
+  ├─ HikariCP 连接池和 Hibernate EntityManagerFactory 就绪
+  ├─ Hibernate 按 ddl-auto=update 建好 books 表
+  ├─ Spring Data JPA 创建 BookRepository 代理对象
+  ├─ 执行 new DataInitializer(bookRepository) 完成构造器注入
+  └─ Tomcat 开始监听 8080 端口
+      ↓
+日志打印 Started BookApiApplication in x.x seconds
+      ↓
+SpringApplication 调用内部的 callRunners 方法
+      ↓
+从容器中取出所有 CommandLineRunner 和 ApplicationRunner Bean
+      ↓
+逐个回调它们的 run(args)
+      ↓
+DataInitializer.run() 被执行 → count() → 为 0 才 save() 三次
+```
+
+所以 `implements CommandLineRunner` 的作用是“打标记”：
+
+| 写法 | 作用 |
+| --- | --- |
+| `@Component` | 让 DataInitializer 进入 Spring 容器 |
+| `implements CommandLineRunner` | 让 Spring Boot 在启动收尾阶段回调它的 `run()` |
+
+两者缺少任何一个，`run()` 都不会执行。
+
+### 关于 CommandLineRunner 的几个细节
+
+- 执行时机在所有 Bean 创建完成、Hibernate 建表完成、Tomcat 已经启动之后。因此 `run()` 里可以直接使用 `bookRepository`，`books` 表也已经存在。
+- 控制台的顺序是 `Started BookApiApplication ...` 先出现，之后才是 `select count(*)` 和三条 `insert into books`。因为打印启动完成日志发生在回调 Runner 之前。
+- `run(String... args)` 收到的就是 `main` 方法的原始命令行参数。
+- 它还有一个兄弟接口 `ApplicationRunner`，区别只是回调参数变成解析过的 `ApplicationArguments`。两者由同一段启动逻辑统一回调。
+- 如果项目里有多个 Runner，可以用 `@Order` 控制先后顺序。
+- `run()` 中抛出异常会导致应用启动失败并退出，不是忽略后继续运行。
+
+想亲自确认调用来源，可以在 `bookRepository.count()` 这一行打断点，用 Debug 方式启动，然后查看调用栈。栈中会出现 Spring Boot 的 `SpringApplication` 调用 `DataInitializer.run` 的过程。
+
 ### 构造器注入
 
 DataInitializer 通过构造方法取得 Spring Data 创建的 BookRepository，与前一节的构造器注入方式相同。
@@ -1032,14 +1050,19 @@ data/
 
 ```text
 Found 1 JPA repository interfaces
+Tomcat initialized with port(s): 8080 (http)
+HikariPool-1 - Start completed.
+H2 console available at '/h2-console'. Database available at 'jdbc:h2:file:./data/bookdb'
 Using dialect: org.hibernate.dialect.H2Dialect
 create table books
-H2 console available at '/h2-console'
+Tomcat started on port(s): 8080 (http)
 ```
 
-还会看到三条 `insert into books`，表示初始化器插入初始数据。
+在 `Started BookApiApplication in x.x seconds` 之后，还会看到一条 `select count(*)` 和三条 `insert into books`，这是 DataInitializer 插入初始数据。
 
-以后重启时会先执行 `select count(*)`。因为数据库不为空，不会重复执行三条初始 insert。
+以后重启时同样先执行 `select count(*)`。因为数据库不为空，不会重复执行三条初始 insert。
+
+完整的启动顺序和它与请求处理的衔接关系，见本节第 17 步。
 
 ## 13. 验证接口仍然正常
 
@@ -1147,53 +1170,186 @@ H2 Console 是辅助学习工具。接口验证仍以 curl 和浏览器返回结
 
 > 截图用于培训文档前已移除浏览器会话参数和个人水印。H2 Console 只建议在本地学习环境中开启。
 
-## 17. 一次查询怎样到达数据库
+## 17. 从启动到查询的完整链路
+
+前面各步分别解释了实体、Repository、配置和初始化器。这一步把它们按时间顺序串成一条链路。
+
+关键是先区分两个阶段：
+
+| 阶段 | 发生次数 | 主要工作 |
+| --- | --- | --- |
+| 启动阶段 | 每次运行应用一次 | 创建 Bean、建表、插入初始数据 |
+| 请求阶段 | 每来一个 HTTP 请求一次 | 查询或修改数据并返回 JSON |
+
+初学时容易把两个阶段混在一起，于是会产生“表是谁建的”“三本书是谁插入的”“findAll 的实现什么时候出现”这类疑问。它们全部发生在启动阶段，请求阶段只是使用已经准备好的对象。
+
+### 阶段一：启动阶段（只执行一次）
 
 ```text
-GET /api/books
+1. main() 调用 SpringApplication.run(BookApiApplication.class, args)
       ↓
-BookController.findAll()
+2. 读取 src/main/resources/application.properties
+   日志：Starting BookApiApplication using Java 1.8...
       ↓
-BookService.findAll()
+3. @ComponentScan 从 com.example.bookapi 向下扫描
+   登记 BookController(@RestController)、BookService(@Service)、DataInitializer(@Component)
       ↓
-BookRepository.findAll()
+4. Spring Data 扫描 Repository 接口
+   日志：Found 1 JPA repository interfaces
+   这一步只登记 BookRepository，代理对象还没有真正创建
       ↓
-Spring Data 生成的 Repository 实现
+5. 准备内嵌 Tomcat
+   日志：Tomcat initialized with port(s): 8080 (http)
       ↓
-Hibernate 生成 SELECT SQL
+6. 创建容器中的单例 Bean
+   创建 BookRepository 代理需要数据源和 JPA，于是先完成下面这些：
+   ├─ HikariCP 按 spring.datasource.url 建立连接池
+   │  日志：HikariPool-1 - Start completed
+   ├─ 注册 H2 Console
+   │  日志：H2 console available at '/h2-console'
+   ├─ Hibernate 扫描 @Entity，选定 H2Dialect
+   ├─ 按 ddl-auto=update 对比实体和数据库，第一次启动时执行 create table books
+   └─ 日志：Initialized JPA EntityManagerFactory for persistence unit 'default'
       ↓
-H2 执行 SQL 并返回数据行
+7. BookRepository 代理创建完成，通用方法交给 SimpleJpaRepository
       ↓
-Hibernate 把数据行转换成 Book 对象
+8. 按依赖顺序完成注入
+   BookRepository 代理 → BookService → BookController
+   BookRepository 代理 → DataInitializer
       ↓
-Book 对象逐层返回
+9. Tomcat 真正开始监听，DispatcherServlet 登记 /api/books 等地址与 Controller 方法的对应关系
+   日志：Tomcat started on port(s): 8080 (http)
       ↓
-Jackson 转换成 JSON
+10. 日志：Started BookApiApplication in x.x seconds
+      ↓
+11. Spring Boot 回调所有 CommandLineRunner
+    DataInitializer.run() 执行 count()，日志出现 select count(*)
+    结果为 0 时 save() 三次，出现三条 insert into books
+      ↓
+12. 应用就绪，等待 HTTP 请求
 ```
 
-## 18. 一次新增怎样写入数据库
+到这里，后面请求要用到的东西已经全部准备好：连接池、`books` 表、Repository 代理、Service、Controller、地址映射。
+
+两个容易看错的地方：
+
+- 第 4 步的 `Found 1 JPA repository interfaces` 出现得很早，它表示“扫描到了这个接口”，不表示代理对象已经可用。代理对象要等到第 6、7 步，也就是 EntityManagerFactory 就绪之后才创建。
+- Tomcat 的日志分两条。`Tomcat initialized` 在前，只是初始化；真正开始接收请求是靠后的 `Tomcat started`。所以在数据库和 Bean 都没准备好之前，端口不会对外提供服务。
+
+### 阶段二：请求阶段（每次请求都会走一遍）
+
+以 `curl -i http://localhost:8080/api/books` 为例：
+
+```text
+1. curl 发出 GET /api/books
+      ↓
+2. Tomcat 接收连接，交给 DispatcherServlet
+      ↓
+3. DispatcherServlet 按启动阶段登记的映射，找到 BookController.findAll()
+      ↓
+4. Controller 调用 bookService.findAll()
+      ↓
+5. Service 调用 bookRepository.findAll()
+   这里的 bookRepository 就是启动阶段第 6 步创建的代理对象
+      ↓
+6. 代理对象判断 findAll 属于继承的通用方法，交给 SimpleJpaRepository
+      ↓
+7. SimpleJpaRepository 通过 EntityManager 发起 Book 实体查询
+      ↓
+8. Hibernate 根据 @Entity 和 @Table 生成 select ... from books
+      ↓
+9. 从 HikariCP 借一个连接，H2 执行 SQL 并返回数据行
+      ↓
+10. Hibernate 把每一行转换成 Book 对象，组成 List<Book>
+      ↓
+11. 结果沿 Repository → Service → Controller 原路返回
+      ↓
+12. @RestController 让 Jackson 把 List<Book> 转换成 JSON
+      ↓
+13. Tomcat 返回 HTTP 200 和 JSON 响应体
+```
+
+### 每一层负责什么
+
+| 层次 | 主要职责 |
+| --- | --- |
+| Tomcat | 接收和返回 HTTP 请求 |
+| DispatcherServlet | 按地址和请求方法找到对应的 Controller 方法 |
+| Controller | 处理地址、参数、JSON 和响应状态 |
+| Service | 组织业务步骤，例如先查询再修改 |
+| Repository | 表达需要进行的数据库操作 |
+| Repository 代理 | 接收接口调用并选择对应实现方式 |
+| EntityManager | JPA 操作实体的核心接口 |
+| Hibernate | 实现 JPA，生成并执行 SQL |
+| HikariCP | 管理可复用的数据库连接 |
+| H2 | 真正保存表和数据 |
+
+### 新增请求的差异
+
+四个接口走的是同一条链路，只有第 4 到第 10 步的内容不同。以 POST 为例：
 
 ```text
 POST /api/books + JSON
       ↓
-Jackson 创建 Book，id 为 null
+Jackson 用无参构造方法创建 Book 并填入 title、author，id 为 null
       ↓
-Controller 调用 Service.create()
+BookController.create() 调用 bookService.create(book)
       ↓
-Service 再次把 id 设置为 null
+Service 再次执行 book.setId(null)，确保是新增
       ↓
-Repository.save(book)
+bookRepository.save(book)
       ↓
-Hibernate 生成 INSERT SQL
+代理对象 → SimpleJpaRepository 判断 id 为 null，按新增处理
       ↓
-H2 插入一行并生成主键
+Hibernate 生成 insert into books
       ↓
-Hibernate 把生成的 id 写回 Book
+H2 插入一行并生成主键，Hibernate 把生成的 id 写回 Book
       ↓
-返回带 id 的 JSON
+Controller 返回带 id 的 Book，Jackson 转换成 JSON
+      ↓
+因为有 @ResponseStatus(HttpStatus.CREATED)，响应状态是 201
 ```
 
-## 19. 如何重置本地学习数据库
+PUT 是先 `findById` 再 `save`，产生一条 select 和一条 update。DELETE 是先 `existsById` 再 `deleteById`，产生一条 select 和一条 delete。
+
+### 用控制台日志对照这条链路
+
+打开 `show-sql` 后，可以直接在 IDEA 的 Run 窗口逐行对照。下面是本项目一次真实重启的日志（数据库中已有数据），只删掉了时间戳和线程名：
+
+```text
+Starting BookApiApplication using Java 1.8.0_502 ...        ← 启动阶段第 2 步
+No active profile set, falling back to 1 default profile
+Bootstrapping Spring Data JPA repositories in DEFAULT mode.  ← 第 4 步开始
+Finished Spring Data repository scanning in 19 ms.
+        Found 1 JPA repository interfaces.                   ← 只是扫描到接口
+Tomcat initialized with port(s): 8080 (http)                 ← 第 5 步，尚未监听
+Root WebApplicationContext: initialization completed
+HikariPool-1 - Starting...                                   ← 第 6 步，连接池
+HikariPool-1 - Start completed.
+H2 console available at '/h2-console'.
+        Database available at 'jdbc:h2:file:./data/bookdb'    ← 确认是文件数据库
+Processing PersistenceUnitInfo [name: default]
+Hibernate ORM core version 5.6.15.Final
+Using dialect: org.hibernate.dialect.H2Dialect
+Initialized JPA EntityManagerFactory for persistence unit 'default'
+Tomcat started on port(s): 8080 (http)                       ← 第 9 步，开始监听
+Started BookApiApplication in 1.924 seconds                  ← 第 10 步，启动完成
+Hibernate:
+    select
+        count(*) as col_0_0_
+    from
+        books book0_                                         ← 第 11 步，Runner 回调
+```
+
+这段日志同时说明三件事：
+
+1. 最后那条 `select count(*)` 出现在 `Started BookApiApplication` 之后，它来自 `DataInitializer.run()`，不属于任何 HTTP 请求。
+2. 这次 `count()` 结果不是 0，所以后面没有三条 `insert into books`，初始数据不会重复插入。
+3. 因为 `ddl-auto=update` 发现 `books` 表已经存在且结构一致，这次没有 `create table books`。只有第一次启动或删掉 `data/` 之后才会看到建表语句。
+
+执行 curl 之后，才会出现这次请求对应的 `select`、`insert`、`update` 或 `delete`，那属于请求阶段。
+
+## 18. 如何重置本地学习数据库
 
 如果以后需要从空数据库重新练习：
 
@@ -1206,7 +1362,7 @@ Hibernate 把生成的 id 写回 Book
 
 不要在应用运行时移动数据库文件。
 
-## 20. 当前项目目录
+## 19. 当前项目目录
 
 ```text
 spring-boot-project
@@ -1245,6 +1401,8 @@ spring-boot-project
 - 能解释 `@Entity`、`@Id`、`@GeneratedValue`。
 - 能解释为什么 BookRepository 接口不需要手写实现类。
 - 能说出 JPA、Hibernate、Spring Data JPA、H2 的大致关系。
+- 能说出 DataInitializer 的 `run()` 是被谁调用的，以及它在启动流程中的位置。
+- 能区分启动阶段和请求阶段各自完成了什么工作。
 
 ## 常见问题
 
