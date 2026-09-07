@@ -405,7 +405,7 @@ Spring 返回 HTTP 200
 
 验证截图：
 
-![修改后查询编号为 1 的图书](images/09-book-update-success.png)
+![修改后查询编号为 1 的图书](./images/09-book-update-success.png)
 
 ## 常见问题
 

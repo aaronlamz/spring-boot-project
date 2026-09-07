@@ -655,7 +655,7 @@ src/main/java/com/example/bookapi
 
 验证截图：
 
-![分层后完成新增、修改和删除的最终图书列表](images/11-layered-crud-success.png)
+![分层后完成新增、修改和删除的最终图书列表](./images/11-layered-crud-success.png)
 
 ## 常见问题
 

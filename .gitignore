@@ -6,3 +6,7 @@ exports/
 data/
 *.iml
 .DS_Store
+
+# 本地文档站，node_modules 和构建产物不提交，package-lock.json 需要提交
+node_modules/
+doc_build/

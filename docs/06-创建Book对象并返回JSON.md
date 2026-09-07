@@ -298,7 +298,7 @@ return new Book(id, "Spring Boot 入门", "张三");
 
 验证成功后的页面如下：
 
-![查询单本图书成功](images/06-book-json-success.png)
+![查询单本图书成功](./images/06-book-json-success.png)
 
 把地址最后的 `1` 改成 `20`：
 

@@ -1,0 +1,18 @@
+{
+  "name": "spring-boot-learning-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Spring Boot 零基础学习教程的本地文档站，仅用于本地预览",
+  "scripts": {
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview",
+    "clean": "rm -rf doc_build node_modules/.cache"
+  },
+  "devDependencies": {
+    "rspress": "1.47.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

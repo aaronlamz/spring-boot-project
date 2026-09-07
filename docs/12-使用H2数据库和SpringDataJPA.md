@@ -1166,7 +1166,7 @@ H2 Console 是辅助学习工具。接口验证仍以 curl 和浏览器返回结
 
 这同时证明：Controller 到数据库的完整调用链能够工作，并且新增、修改、删除结果已经保存到 H2 文件，而不是只存在于 Java 内存中。
 
-![H2 Console 查询 BOOKS 表的验证结果](images/12-h2-database-success.png)
+![H2 Console 查询 BOOKS 表的验证结果](./images/12-h2-database-success.png)
 
 > 截图用于培训文档前已移除浏览器会话参数和个人水印。H2 Console 只建议在本地学习环境中开启。
 

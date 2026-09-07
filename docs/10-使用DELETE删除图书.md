@@ -457,7 +457,7 @@ CRUD 是四个英文单词的首字母：
 
 验证截图：
 
-![删除编号为 2 的图书后查询全部图书](images/10-book-delete-success.png)
+![删除编号为 2 的图书后查询全部图书](./images/10-book-delete-success.png)
 
 ## 常见问题
 

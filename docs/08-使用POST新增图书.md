@@ -455,7 +455,7 @@ Spring 返回 201 Created
 
 验证截图：
 
-![新增图书后查询全部图书](images/08-book-create-success.png)
+![新增图书后查询全部图书](./images/08-book-create-success.png)
 
 ## 常见问题
 

@@ -299,7 +299,7 @@ http://localhost:8080/api/books
 
 验证成功后的页面如下：
 
-![查询全部图书成功](images/07-book-list-success.png)
+![查询全部图书成功](./images/07-book-list-success.png)
 
 ## 11. 验证按编号查询
 
@@ -315,7 +315,7 @@ http://localhost:8080/api/books/3
 
 查询编号 1 的图书成功页面如下：
 
-![按编号查询图书成功](images/07-book-by-id-success.png)
+![按编号查询图书成功](./images/07-book-by-id-success.png)
 
 还可以访问一个不存在的编号：
 
