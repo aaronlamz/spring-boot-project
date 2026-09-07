@@ -6,8 +6,8 @@ export default defineConfig({
   // 构建产物目录，已加入 .gitignore
   outDir: 'doc_build',
   lang: 'zh',
-  title: 'Spring Boot 零基础学习教程',
-  description: '从启动第一个接口到接入数据库、参数校验与自动化测试的逐步教程',
+  title: 'Spring Boot 图书 API 教程',
+  description: '使用 Spring Boot 2.7.18 与 Java 8 构建图书管理 REST 接口的入门教程',
   // 本地预览不部署，站点挂在根路径
   base: '/',
   themeConfig: {
