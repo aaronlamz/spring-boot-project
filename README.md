@@ -14,7 +14,9 @@
 - 实现图书的新增、查询、修改和删除
 - 将代码拆分为 Controller、Service、Repository
 - 使用数据库保存数据
-- 添加参数校验、异常处理和自动化测试
+- 添加参数校验和统一异常处理
+- 为三层代码补上自动化测试
+- 把接口的请求和响应模型与数据库实体分开
 
 ## 技术版本
 
@@ -24,6 +26,9 @@
 - IntelliJ IDEA
 - Spring Data JPA
 - H2 Database
+- Bean Validation（Hibernate Validator）
+- JUnit 5、Mockito、AssertJ、MockMvc
+- Rspress（本地文档站，仅用于阅读教程）
 
 Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 项目的运行环境一致。
 
@@ -40,6 +45,9 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 | 第 10 节 | 使用 DELETE 删除图书 | 已完成 |
 | 第 11 节 | Controller、Service、Repository 分层 | 已完成 |
 | 第 12 节 | 使用 H2 数据库和 Spring Data JPA | 已完成 |
+| 第 13 节 | 参数校验和统一异常处理 | 已完成 |
+| 第 14 节 | 为接口补上自动化测试 | 已完成 |
+| 第 15 节 | 请求和响应模型与实体分离 | 已完成 |
 
 ## 从这里开始
 
@@ -47,9 +55,22 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 
 已经完成前面课程、准备继续当前进度时，请阅读：
 
-- [第 12 节：使用 H2 数据库和 Spring Data JPA](docs/12-使用H2数据库和SpringDataJPA.md)
+- [第 15 节：请求和响应模型与实体分离](docs/15-请求和响应模型与实体分离.md)
 - [使用 curl 验证接口](docs/使用curl验证接口.md)
 - [HTTP 请求示例文件](requests/book-api.http)（仅作为请求内容参考）
+
+## 在本地以网页方式阅读文档
+
+除了直接看 `docs/` 下的 Markdown，也可以启动本地文档站，获得侧边栏、全文搜索和上一篇下一篇导航。需要 Node.js 18 以上。
+
+```bash
+npm install
+npm run dev
+```
+
+然后访问 `http://localhost:3000`。修改 Markdown 保存后页面会自动刷新。停止时按 `Control + C`。
+
+文档站只用于本地阅读，不需要部署。`node_modules/` 和构建产物 `doc_build/` 都不会提交到仓库。
 
 每一节文档都会说明：
 
@@ -102,6 +123,19 @@ mvn spring-boot:run
 }
 ```
 
+请求体只接受 `title` 和 `author` 两个字段。编号由数据库生成，即使在请求体里写上 `id` 也会被忽略，原因见第 15 节。
+
+### 错误响应
+
+从第 13 节开始，所有接口的错误响应结构统一：
+
+| 情况 | 状态码 | 响应体 |
+| --- | --- | --- |
+| 书名或作者为空 | 400 | `{"status":400,"message":"请求参数不正确","fieldErrors":{"title":"书名不能为空"}}` |
+| 编号不存在 | 404 | `{"status":404,"message":"图书不存在，编号 99"}` |
+
+按编号查询、修改、删除时，编号不存在都返回 404。第 10 节到第 12 节期间，删除不存在的编号返回 204，第 13 节起改为 404。
+
 POST、PUT 和后续的 DELETE 请求不能只靠浏览器地址栏完成。当前学习环境统一使用 macOS 自带的 `curl` 发送接口请求，不依赖 IDEA HTTP Client，也不需要为此购买或试用 IDEA 许可证。完整说明和 GET、POST、PUT 示例见[使用 curl 验证接口](docs/使用curl验证接口.md)。
 
 修改图书的请求体示例：
@@ -122,18 +156,32 @@ DELETE 请求只需要在地址中提供要删除的图书编号，不需要 JSO
 ```text
 HTTP 请求
     ↓
+Jackson 把 JSON 转成 BookRequest
+    ↓
+Bean Validation 检查 BookRequest 上的校验注解
+    ↓
 BookController：接收请求和返回响应
     ↓
-BookService：组织业务步骤
+BookMapper：BookRequest 转成 Book 实体
+    ↓
+BookService：组织业务步骤，找不到数据时抛出异常
     ↓
 BookRepository：Spring Data JPA 数据访问接口
     ↓
 Hibernate：把对象操作转换成 SQL
     ↓
 H2 文件数据库：data/bookdb.mv.db
+    ↓
+BookMapper：Book 实体转成 BookResponse
+    ↓
+Jackson 生成响应 JSON
 ```
 
-接口地址保持不变，但图书数据已经从 ArrayList 移到 H2 文件数据库。应用停止和重新启动后，数据仍然存在。`data/` 是本机运行数据目录，已加入 `.gitignore`，不会提交到仓库。
+出错时的路径由 `GlobalExceptionHandler` 接管，把异常统一转换成 `ApiError` 和对应状态码。
+
+图书数据已经从 ArrayList 移到 H2 文件数据库，应用停止和重新启动后数据仍然存在。`data/` 是本机运行数据目录，已加入 `.gitignore`，不会提交到仓库。
+
+接口的输入输出由 `dto` 包下的模型类描述，实体 `Book` 只负责数据库映射，不再直接出现在接口上。
 
 ## 学习文档
 
@@ -151,6 +199,9 @@ H2 文件数据库：data/bookdb.mv.db
 10. [使用 DELETE 删除图书](docs/10-使用DELETE删除图书.md)
 11. [Controller、Service、Repository 分层](docs/11-Controller-Service-Repository分层.md)
 12. [使用 H2 数据库和 Spring Data JPA](docs/12-使用H2数据库和SpringDataJPA.md)
+13. [参数校验和统一异常处理](docs/13-参数校验和统一异常处理.md)
+14. [为接口补上自动化测试](docs/14-为接口补上自动化测试.md)
+15. [请求和响应模型与实体分离](docs/15-请求和响应模型与实体分离.md)
 
 ## 已完成课程的代码快照
 
@@ -164,8 +215,11 @@ H2 文件数据库：data/bookdb.mv.db
 | `lesson-06-book-delete` | 使用 DELETE 删除指定编号的图书 |
 | `lesson-07-layered-architecture` | 将图书功能拆分为 Controller、Service、Repository |
 | `lesson-08-h2-jpa` | 使用 H2 和 Spring Data JPA 持久化图书数据 |
+| `lesson-09-validation-exception` | 参数校验和统一异常处理 |
+| `lesson-10-tests` | Service、Repository、Controller 三层自动化测试 |
+| `lesson-11-dto` | 请求和响应模型与实体分离 |
 
-标签的查看、切换和源码导出方法见[如何重现每一节代码](docs/00-如何重现每一节代码.md)。
+标签只在代码发生变化的节建立，所以编号和文档编号不一致，例如 `lesson-11-dto` 对应第 15 节。对应关系和源码导出方法见[如何重现每一节代码](docs/00-如何重现每一节代码.md)。
 
 ## 运行自动化测试
 
@@ -175,15 +229,28 @@ H2 文件数据库：data/bookdb.mv.db
 mvn test
 ```
 
-看到 `BUILD SUCCESS` 表示自动化测试通过。自动化测试通过后，仍然需要按照对应课程文档进行一次手动接口验证。
+当前共有 21 个用例，分布在四个测试类里：
+
+| 测试类 | 范围 | 用例数 |
+| --- | --- | --- |
+| `BookServiceTest` | 业务判断，使用替身，不启动 Spring | 5 |
+| `BookRepositoryTest` | 实体映射和数据库操作，只启动 JPA 层 | 4 |
+| `BookControllerTest` | 地址、状态码、JSON 契约，只启动 Web 层 | 7 |
+| `BookMapperTest` | 三种模型之间的字段转换 | 4 |
+| `BookApiApplicationTests` | 整个应用能否启动 | 1 |
+
+看到 `Tests run: 21, Failures: 0, Errors: 0` 和 `BUILD SUCCESS` 表示自动化测试通过。
+
+测试使用独立的内存数据库，不会影响 `data/bookdb` 里手动练习的数据，也不需要先启动应用。自动化测试通过后，仍然需要按照对应课程文档进行一次手动接口验证。
 
 ## 每一节的完成规则
 
 每一节都按照下面的顺序完成：
 
 1. 编写本节代码。
-2. 补充详细学习文档和根目录 README。
-3. 运行自动化测试。
+2. 补充本节学习文档。
+3. 更新根目录 README、`docs/README.md`、`docs/00-如何重现每一节代码.md` 和文档站侧边栏配置。
+4. 运行自动化测试。
 4. 按文档在 IDEA 或浏览器中手动验证。
 5. 保存验证截图（适用时）。
 6. 提交代码并创建课程 Git 标签。
