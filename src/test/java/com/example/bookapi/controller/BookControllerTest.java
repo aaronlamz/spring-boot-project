@@ -1,17 +1,21 @@
 package com.example.bookapi.controller;
 
+import com.example.bookapi.dto.BookMapper;
 import com.example.bookapi.exception.BookNotFoundException;
 import com.example.bookapi.model.Book;
 import com.example.bookapi.service.BookService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
@@ -24,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(BookController.class)
+@Import(BookMapper.class)
 class BookControllerTest {
 
     @Autowired
@@ -54,6 +59,22 @@ class BookControllerTest {
                         .content("{\"title\":\"数据库入门\",\"author\":\"赵六\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(4));
+    }
+
+    @Test
+    void createIgnoresIdInRequestBody() throws Exception {
+        given(bookService.create(any(Book.class)))
+                .willReturn(new Book(4L, "数据库入门", "赵六"));
+
+        mockMvc.perform(post("/api/books")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":123,\"title\":\"数据库入门\",\"author\":\"赵六\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(4));
+
+        ArgumentCaptor<Book> sentToService = ArgumentCaptor.forClass(Book.class);
+        verify(bookService).create(sentToService.capture());
+        assertThat(sentToService.getValue().getId()).isNull();
     }
 
     @Test

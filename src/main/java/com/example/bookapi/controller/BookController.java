@@ -1,6 +1,8 @@
 package com.example.bookapi.controller;
 
-import com.example.bookapi.model.Book;
+import com.example.bookapi.dto.BookMapper;
+import com.example.bookapi.dto.BookRequest;
+import com.example.bookapi.dto.BookResponse;
 import com.example.bookapi.service.BookService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,25 +23,27 @@ import java.util.List;
 public class BookController {
 
     private final BookService bookService;
+    private final BookMapper bookMapper;
 
-    public BookController(BookService bookService) {
+    public BookController(BookService bookService, BookMapper bookMapper) {
         this.bookService = bookService;
+        this.bookMapper = bookMapper;
     }
 
     @GetMapping
-    public List<Book> findAll() {
-        return bookService.findAll();
+    public List<BookResponse> findAll() {
+        return bookMapper.toResponseList(bookService.findAll());
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Book create(@Valid @RequestBody Book book) {
-        return bookService.create(book);
+    public BookResponse create(@Valid @RequestBody BookRequest request) {
+        return bookMapper.toResponse(bookService.create(bookMapper.toEntity(request)));
     }
 
     @PutMapping("/{id}")
-    public Book update(@PathVariable Long id, @Valid @RequestBody Book updatedBook) {
-        return bookService.update(id, updatedBook);
+    public BookResponse update(@PathVariable Long id, @Valid @RequestBody BookRequest request) {
+        return bookMapper.toResponse(bookService.update(id, bookMapper.toEntity(request)));
     }
 
     @DeleteMapping("/{id}")
@@ -49,7 +53,7 @@ public class BookController {
     }
 
     @GetMapping("/{id}")
-    public Book findById(@PathVariable Long id) {
-        return bookService.findById(id);
+    public BookResponse findById(@PathVariable Long id) {
+        return bookMapper.toResponse(bookService.findById(id));
     }
 }

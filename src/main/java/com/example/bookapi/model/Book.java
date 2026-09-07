@@ -5,7 +5,6 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import javax.validation.constraints.NotBlank;
 
 @Entity
 @Table(name = "books")
@@ -14,11 +13,7 @@ public class Book {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @NotBlank(message = "书名不能为空")
     private String title;
-
-    @NotBlank(message = "作者不能为空")
     private String author;
 
     public Book() {

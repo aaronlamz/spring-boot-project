@@ -96,6 +96,16 @@ export default defineConfig({
             { text: '14 为接口补上自动化测试', link: '/14-为接口补上自动化测试' },
           ],
         },
+        {
+          text: '第十阶段 接口契约',
+          collapsed: false,
+          items: [
+            {
+              text: '15 请求和响应模型与实体分离',
+              link: '/15-请求和响应模型与实体分离',
+            },
+          ],
+        },
       ],
     },
   },
