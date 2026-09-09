@@ -1,5 +1,6 @@
 package com.example.bookapi.service;
 
+import com.example.bookapi.common.ErrorCode;
 import com.example.bookapi.exception.BookNotFoundException;
 import com.example.bookapi.model.Book;
 import com.example.bookapi.repository.BookRepository;
@@ -46,7 +47,9 @@ class BookServiceTest {
 
         assertThatThrownBy(() -> bookService.findById(99L))
                 .isInstanceOf(BookNotFoundException.class)
-                .hasMessage("图书不存在，编号 99");
+                .hasMessage("图书不存在，编号 99")
+                .extracting(exception -> ((BookNotFoundException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.BOOK_NOT_FOUND);
     }
 
     @Test

@@ -68,7 +68,15 @@ HTTP/1.1 200
 Content-Type: application/json
 ```
 
-后面是图书 JSON 数组。
+后面是响应体。
+
+从第 16 节开始，所有 `/api/books` 接口的响应都是同一个结构：
+
+```json
+{"code":0,"msg":"成功","data":[{"id":1,"title":"Spring Boot 入门","author":"张三"}]}
+```
+
+`code` 为 0 表示业务成功，图书数据在 `data` 里。第 16 节之前的文档里看到的是不带这层外壳的裸 JSON，那是当时的写法，两者都属于正常，只要和你当前代码所在的节次对得上。
 
 ## 4. GET：根据编号查询图书
 
@@ -81,7 +89,7 @@ curl -i http://localhost:8080/api/books/1
 地址末尾的 `1` 是图书编号。成功响应示例：
 
 ```json
-{"id":1,"title":"Spring Boot 入门","author":"张三"}
+{"code":0,"msg":"成功","data":{"id":1,"title":"Spring Boot 入门","author":"张三"}}
 ```
 
 ## 5. POST：新增图书
@@ -101,16 +109,16 @@ curl -i -X POST http://localhost:8080/api/books -H 'Content-Type: application/js
 成功状态是：
 
 ```text
-HTTP/1.1 201
+HTTP/1.1 200
 ```
 
 响应示例：
 
 ```json
-{"id":4,"title":"Spring 实战","author":"赵六"}
+{"code":0,"msg":"成功","data":{"id":4,"title":"Spring 实战","author":"赵六"}}
 ```
 
-`201 Created` 表示服务器成功创建了新数据。
+`data.id` 是数据库生成的编号。第 8 节到第 15 节期间，新增成功返回的是 `201 Created`，第 16 节起统一改为 200，用 `code` 表示业务结果。
 
 ## 6. PUT：修改图书
 
@@ -136,7 +144,7 @@ HTTP/1.1 200
 响应示例：
 
 ```json
-{"id":1,"title":"Spring Boot 进阶","author":"张三"}
+{"code":0,"msg":"成功","data":{"id":1,"title":"Spring Boot 进阶","author":"张三"}}
 ```
 
 修改后可以继续查询确认：
@@ -158,10 +166,16 @@ curl -i -X DELETE http://localhost:8080/api/books/2
 成功状态是：
 
 ```text
-HTTP/1.1 204
+HTTP/1.1 200
 ```
 
-`204 No Content` 表示服务器已经成功处理请求，但没有响应正文。状态行后面看不到 JSON 是正常现象。
+响应示例：
+
+```json
+{"code":0,"msg":"成功","data":null}
+```
+
+删除成功不需要返回数据，所以 `data` 是 `null`。第 10 节到第 15 节期间，删除成功返回的是 `204 No Content`，没有响应正文，第 16 节起统一改为 200 加上面这个结构。
 
 删除后查询全部图书进行确认：
 
@@ -188,7 +202,7 @@ curl -i http://localhost:8080/api/books
 有时终端显示为：
 
 ```text
-{"id":4,"title":"Spring 实战","author":"赵六"}%
+{"code":0,"msg":"成功","data":{"id":4,"title":"Spring 实战","author":"赵六"}}%
 ```
 
 末尾的 `%` 不是服务器返回的 JSON 内容，也不是程序错误。

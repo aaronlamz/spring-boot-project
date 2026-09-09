@@ -17,6 +17,7 @@
 - 添加参数校验和统一异常处理
 - 为三层代码补上自动化测试
 - 把接口的请求和响应模型与数据库实体分开
+- 用统一响应结构和业务错误码约定接口契约
 
 ## 技术版本
 
@@ -48,6 +49,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 | 第 13 节 | 参数校验和统一异常处理 | 已完成 |
 | 第 14 节 | 为接口补上自动化测试 | 已完成 |
 | 第 15 节 | 请求和响应模型与实体分离 | 已完成 |
+| 第 16 节 | 统一响应结构和业务错误码 | 已完成 |
 
 ## 从这里开始
 
@@ -55,7 +57,7 @@ Spring Boot 2.7.18 可以使用 Java 8，适合在学习阶段保持与 Java 8 �
 
 已经完成前面课程、准备继续当前进度时，请阅读：
 
-- [第 15 节：请求和响应模型与实体分离](docs/15-请求和响应模型与实体分离.md)
+- [第 16 节：统一响应结构和业务错误码](docs/16-统一响应结构和业务错误码.md)
 - [使用 curl 验证接口](docs/使用curl验证接口.md)
 - [HTTP 请求示例文件](requests/book-api.http)（仅作为请求内容参考）
 
@@ -125,16 +127,27 @@ mvn spring-boot:run
 
 请求体只接受 `title` 和 `author` 两个字段。编号由数据库生成，即使在请求体里写上 `id` 也会被忽略，原因见第 15 节。
 
-### 错误响应
+### 统一响应结构
 
-从第 13 节开始，所有接口的错误响应结构统一：
+从第 16 节开始，所有 `/api/books` 接口的响应都是同一个结构，HTTP 状态码固定 200，业务结果由 `code` 表达：
 
-| 情况 | 状态码 | 响应体 |
+| 情况 | `code` | 响应体示例 |
 | --- | --- | --- |
-| 书名或作者为空 | 400 | `{"status":400,"message":"请求参数不正确","fieldErrors":{"title":"书名不能为空"}}` |
-| 编号不存在 | 404 | `{"status":404,"message":"图书不存在，编号 99"}` |
+| 成功 | 0 | `{"code":0,"msg":"成功","data":{"id":1,"title":"Spring Boot 入门","author":"张三"}}` |
+| 书名或作者为空 | 1001 | `{"code":1001,"msg":"请求参数不正确","data":{"title":"书名不能为空"}}` |
+| JSON 语法错误或编号不是数字 | 1001 | `{"code":1001,"msg":"请求参数不正确","data":null}` |
+| 编号不存在 | 1002 | `{"code":1002,"msg":"图书不存在，编号 99","data":null}` |
+| 未预期的服务器错误 | 9999 | `{"code":9999,"msg":"服务器内部错误","data":null}` |
 
-按编号查询、修改、删除时，编号不存在都返回 404。第 10 节到第 12 节期间，删除不存在的编号返回 204，第 13 节起改为 404。
+调用方的判断顺序是：先确认请求在网络层成功，再看 `code` 是否为 0，成功读 `data`，失败显示 `msg`。
+
+契约变化记录：
+
+- 第 10 节到第 15 节，删除不存在的编号返回 204 或 404；第 16 节起返回 200 加 `code` 1002。
+- 第 8 节到第 15 节，新增成功返回 201；第 16 节起返回 200 加 `code` 0。
+- 第 13 节到第 15 节，参数错误返回 400、编号不存在返回 404；第 16 节起统一为 200 加对应 `code`。
+
+`/hello` 不在统一包装范围内，仍然返回纯文本。
 
 POST、PUT 和后续的 DELETE 请求不能只靠浏览器地址栏完成。当前学习环境统一使用 macOS 自带的 `curl` 发送接口请求，不依赖 IDEA HTTP Client，也不需要为此购买或试用 IDEA 许可证。完整说明和 GET、POST、PUT 示例见[使用 curl 验证接口](docs/使用curl验证接口.md)。
 
@@ -174,10 +187,12 @@ H2 文件数据库：data/bookdb.mv.db
     ↓
 BookMapper：Book 实体转成 BookResponse
     ↓
+ApiResponseBodyAdvice：包装成 ApiResponse，补上 code 和 msg
+    ↓
 Jackson 生成响应 JSON
 ```
 
-出错时的路径由 `GlobalExceptionHandler` 接管，把异常统一转换成 `ApiError` 和对应状态码。
+出错时的路径由 `GlobalExceptionHandler` 接管，把异常统一转换成 `ApiResponse`，业务返回码来自 `ErrorCode` 枚举。
 
 图书数据已经从 ArrayList 移到 H2 文件数据库，应用停止和重新启动后数据仍然存在。`data/` 是本机运行数据目录，已加入 `.gitignore`，不会提交到仓库。
 
@@ -202,6 +217,7 @@ Jackson 生成响应 JSON
 13. [参数校验和统一异常处理](docs/13-参数校验和统一异常处理.md)
 14. [为接口补上自动化测试](docs/14-为接口补上自动化测试.md)
 15. [请求和响应模型与实体分离](docs/15-请求和响应模型与实体分离.md)
+16. [统一响应结构和业务错误码](docs/16-统一响应结构和业务错误码.md)
 
 ## 已完成课程的代码快照
 
@@ -218,6 +234,7 @@ Jackson 生成响应 JSON
 | `lesson-09-validation-exception` | 参数校验和统一异常处理 |
 | `lesson-10-tests` | Service、Repository、Controller 三层自动化测试 |
 | `lesson-11-dto` | 请求和响应模型与实体分离 |
+| `lesson-12-unified-response` | 统一响应结构和业务错误码 |
 
 标签只在代码发生变化的节建立，所以编号和文档编号不一致，例如 `lesson-11-dto` 对应第 15 节。对应关系和源码导出方法见[如何重现每一节代码](docs/00-如何重现每一节代码.md)。
 
@@ -229,17 +246,18 @@ Jackson 生成响应 JSON
 mvn test
 ```
 
-当前共有 21 个用例，分布在四个测试类里：
+当前共有 27 个用例，分布在五个测试类里：
 
 | 测试类 | 范围 | 用例数 |
 | --- | --- | --- |
 | `BookServiceTest` | 业务判断，使用替身，不启动 Spring | 5 |
 | `BookRepositoryTest` | 实体映射和数据库操作，只启动 JPA 层 | 4 |
-| `BookControllerTest` | 地址、状态码、JSON 契约，只启动 Web 层 | 7 |
+| `BookControllerTest` | 地址、返回码、JSON 契约，只启动 Web 层 | 9 |
 | `BookMapperTest` | 三种模型之间的字段转换 | 4 |
+| `ApiResponseTest` | 统一响应结构的返回码和文案 | 4 |
 | `BookApiApplicationTests` | 整个应用能否启动 | 1 |
 
-看到 `Tests run: 21, Failures: 0, Errors: 0` 和 `BUILD SUCCESS` 表示自动化测试通过。
+看到 `Tests run: 27, Failures: 0, Errors: 0` 和 `BUILD SUCCESS` 表示自动化测试通过。
 
 测试使用独立的内存数据库，不会影响 `data/bookdb` 里手动练习的数据，也不需要先启动应用。自动化测试通过后，仍然需要按照对应课程文档进行一次手动接口验证。
 
